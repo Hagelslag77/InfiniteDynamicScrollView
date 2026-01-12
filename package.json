@@ -1,6 +1,6 @@
 {
   "name": "hagelslag.infinitedynamicscrollview",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "Infinite DynamicScroll View",
   "description": "Provides a Unity ScrollRect and ScrollView supporting an infinite amount of entries of dynamic dimensions.",
   "unity": "6000.3",
@@ -17,9 +17,14 @@
   },
   "samples": [
     {
-      "displayName": "Examples",
+      "displayName": "Simple Scroll",
       "description": "Demonstrates usage of Infinite DynamicScroll View.",
-      "path": "Samples~"
+      "path": "Samples~/01_SimpleScroll"
+    },
+    {
+      "displayName": "Multiple Prefabs",
+      "description": "Demonstrates how to use multiple prefabs, selected by the data used for the prefab. Also shows the use of a custom Object Pool.",
+      "path": "Samples~/02_MultiplePrefabs"
     }
   ],
   "dependencies": {
