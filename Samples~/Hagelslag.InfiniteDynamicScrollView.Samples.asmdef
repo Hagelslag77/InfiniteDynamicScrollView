@@ -1,0 +1,17 @@
+{
+    "name": "Hagelslag.InfiniteDynamicScrollView.Samples",
+    "rootNamespace": "Hagelslag.InfiniteDynamicScrollView.Examples",
+    "references": [
+        "Hagelslag.InfiniteDynamicScrollView.Runtime",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

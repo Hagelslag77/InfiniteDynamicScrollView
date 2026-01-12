@@ -1,0 +1,457 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Hagelslag.InfiniteDynamicScrollView.Pool;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
+
+namespace Hagelslag.InfiniteDynamicScrollView
+{
+    //TODO Feature: add support for top down
+    //TODO Feature: allow other pivots
+    public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler
+    {
+        private struct CellData
+        {
+            public VerticalCell<TData> Cell;
+            public int Index;
+            public float Height;
+            public float BottomPos;
+            public RectTransform RectTransform;
+        }
+
+        [Serializable]
+        private class Padding
+        {
+            // ReSharper disable InconsistentNaming
+            public float Left;
+            public float Right;
+            public float Top;
+            public float Bottom;
+            // ReSharper restore InconsistentNaming
+        }
+
+        private enum MovementType
+        {
+            Unrestricted = ScrollRect.MovementType.Unrestricted,
+            Elastic = ScrollRect.MovementType.Elastic,
+            Clamped = ScrollRect.MovementType.Clamped
+        }
+
+        #region Variables
+
+        [SerializeField] private Padding m_padding;
+        [SerializeField] private float m_spacing;
+
+        [SerializeField] private MovementType m_movementType = MovementType.Elastic;
+        [SerializeField] private float m_elasticity = 0.1f;
+        [SerializeField] private bool m_inertia = true;
+        [SerializeField] private float m_decelerationRate = 0.03f;
+
+        [SerializeField] private float m_scrollSensitivity = 1f;
+
+        [SerializeField] private VerticalCell<TData> m_cellPrefab;
+
+        private IList<TData> m_data;
+        private readonly List<CellData> m_cells = new();
+
+        private float m_currentContentHeight;
+        private Rect m_viewRect;
+        private float m_contentWidth;
+
+        private float m_velocity;
+        private bool m_isDragging;
+        private Vector2 m_lastDragPointerPosition;
+
+        private float m_startPosition;
+        private Vector2 m_startPointerPosition;
+
+        private RectTransform m_rectTransform;
+        private RectTransform RectTransform
+            => m_rectTransform ??= GetComponent<RectTransform>();
+
+
+        private IObjectPool<TData> m_objectPool;
+        protected virtual IObjectPool<TData> ObjectPool
+            => m_objectPool ??= new ObjectPool<TData>(InstantiateCell, DestroyCell);
+
+
+        #endregion
+
+        #region Public Interface
+
+        public float ScrollPosition { get; private set; }
+
+        public void Set(IList<TData> data)
+        {
+            m_data = data;
+            CreateCells();
+        }
+
+        public void Add(TData data)
+        {
+            m_data ??= new List<TData>();
+            if (m_data.IsReadOnly)
+                m_data = new List<TData>(m_data);
+
+            m_data.Add(data);
+
+            var tmp = ObjectPool.Rent(data, transform);
+            tmp.SetData(data);
+            var cellHeight = tmp.GetHeight(m_contentWidth);
+            ObjectPool.Return(tmp);
+
+            for (var i = 0; i < m_cells.Count; i++)
+            {
+                var cell = m_cells[i];
+                cell.BottomPos += cellHeight + m_spacing;
+                m_cells[i] = cell;
+            }
+
+            ScrollPosition -= cellHeight + m_spacing;
+            UpdatePosition(ScrollPosition);
+        }
+
+        public void Clear()
+        {
+            foreach (var cellData in m_cells)
+                ObjectPool.Return(cellData.Cell);
+
+            m_cells.Clear();
+
+            m_currentContentHeight = 0f;
+            ScrollPosition = .0f;
+            m_velocity = .0f;
+            m_isDragging = false;
+            m_lastDragPointerPosition = Vector2.zero;
+            m_startPosition = .0f;
+            m_startPointerPosition = Vector2.zero;
+        }
+
+        protected virtual VerticalCell<TData> InstantiateCell(TData data, Transform parent)
+        {
+            return Instantiate(m_cellPrefab, parent);
+        }
+
+        protected virtual void DestroyCell(VerticalCell<TData> cell)
+        {
+            Destroy(cell.gameObject);
+        }
+
+        #endregion
+
+        #region Implementation
+
+        protected override void OnDestroy()
+        {
+            ObjectPool.Dispose();
+
+            base.OnDestroy();
+        }
+
+        protected override void OnRectTransformDimensionsChange()
+        {
+            m_viewRect = RectTransform.rect;
+            m_contentWidth = m_viewRect.width - m_padding.Left - m_padding.Right;
+
+            Clear();
+            CreateCells();
+        }
+
+        private void CreateCells()
+        {
+            if (m_data == null)
+                return;
+
+            for (var i = m_data.Count - 1; i >= 0 & m_currentContentHeight <= m_viewRect.height - m_padding.Top; i--)
+                CreateCell(i);
+        }
+
+        private void CreateCell(int dataIndex)
+        {
+            var cell = ObjectPool.Rent(m_data[dataIndex], this.transform);
+            cell.SetData(m_data[dataIndex]);
+
+            var rt = cell.GetComponent<RectTransform>();
+            var cellHeight = cell.GetHeight(m_contentWidth);
+            var bottomPos = GetBottomPosForIndex(dataIndex, cellHeight);
+
+            var cellData = new CellData
+            {
+                BottomPos = bottomPos,
+                Height = cellHeight,
+                Cell = cell,
+                Index = dataIndex,
+                RectTransform = rt,
+            };
+
+            if (m_cells.Count == 0 || dataIndex > m_cells[0].Index)
+                m_cells.Insert(0, cellData);
+            else
+                m_cells.Add(cellData);
+
+            rt.sizeDelta = new Vector2(m_contentWidth, 0);
+            //TODO: this assumes the correct pivot, doesn't it?
+            rt.anchoredPosition = new Vector3(0, bottomPos + ScrollPosition, 0);
+
+            var spacing = dataIndex == 0 || dataIndex == m_data.Count - 1 ? 0 : m_spacing;
+            m_currentContentHeight += cellHeight + spacing;
+        }
+
+        private float GetBottomPosForIndex(int dataIndex, float newCellHeight)
+        {
+            if (dataIndex == m_data.Count - 1)
+            {
+                var min = RectTransform.localPosition.y;
+                return min + m_padding.Bottom;
+            }
+
+            var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
+            if (cellDataBelow.Cell is not null)
+                return cellDataBelow.BottomPos + cellDataBelow.Height + m_spacing;
+
+            var cellDataAbove = m_cells.First(x => x.Index == dataIndex - 1);
+            return cellDataAbove.BottomPos - m_spacing - newCellHeight;
+        }
+
+        #endregion
+
+        #region DragHandler
+        void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData.button != PointerEventData.InputButton.Left)
+                return;
+
+            m_velocity = 0f;
+        }
+
+        void IBeginDragHandler.OnBeginDrag(PointerEventData eventData)
+        {
+            if (eventData.button != PointerEventData.InputButton.Left)
+                return;
+
+            m_isDragging = true;
+            m_velocity = 0f;
+            m_startPosition = ScrollPosition;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform) transform, eventData.position,
+                eventData.pressEventCamera, out m_startPointerPosition);
+            m_lastDragPointerPosition = m_startPointerPosition;
+        }
+
+        void IDragHandler.OnDrag(PointerEventData eventData)
+        {
+            if (!m_isDragging || eventData.button != PointerEventData.InputButton.Left)
+                return;
+
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform) transform, eventData.position,
+                    eventData.pressEventCamera, out var currentLocalPoint))
+                return;
+
+            var totalDeltaY = (currentLocalPoint.y - m_startPointerPosition.y) * m_scrollSensitivity;
+            var unclampedPosition = m_startPosition + totalDeltaY;
+
+            var newPosition = unclampedPosition;
+            var offset = CalculateOffset(newPosition);
+
+
+            if (m_movementType == MovementType.Elastic && !Mathf.Approximately(offset, 0f))
+            {
+                newPosition += offset - RubberDelta(offset, m_viewRect.height);
+            }
+            else if (m_movementType == MovementType.Clamped)
+            {
+                newPosition += offset;
+            }
+
+            var deltaTime = Time.unscaledDeltaTime;
+            if (deltaTime > 0)
+            {
+                var frameDeltaY = (currentLocalPoint.y - m_lastDragPointerPosition.y) * m_scrollSensitivity;
+                var newVelocity = frameDeltaY / deltaTime;
+                m_velocity = Mathf.Lerp(m_velocity, newVelocity, deltaTime * 10f);
+            }
+
+            m_lastDragPointerPosition = currentLocalPoint;
+            UpdatePosition(newPosition);
+        }
+
+
+        void IEndDragHandler.OnEndDrag(PointerEventData eventData)
+        {
+            if (eventData.button != PointerEventData.InputButton.Left)
+                return;
+
+            m_isDragging = false;
+
+            if (Mathf.Abs(eventData.delta.y) < .001f)
+                m_velocity = 0f;
+        }
+
+        #endregion
+
+        #region Scrolling
+
+        private float CalculateOffset(float position)
+        {
+            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0)
+                return 0f;
+
+            var isNewestMessageShown = m_cells[0].Index == m_data.Count - 1;
+            if (isNewestMessageShown && position > 0)
+                return -position;
+
+            var isOldestMessageShown = m_cells[^1].Index == 0;
+            if (!isOldestMessageShown)
+                return 0f;
+
+            var max = RectTransform.localPosition.y + RectTransform.rect.yMax;
+
+            var cellData = m_cells[^1];
+            var topEdgeWithPadding = cellData.BottomPos + cellData.Height + m_padding.Top + position;
+            if (topEdgeWithPadding < max)
+                return max - topEdgeWithPadding;
+
+            return 0f;
+        }
+
+        private static float RubberDelta(float overStretching, float viewSize)
+        {
+            return (1 - 1 / (Mathf.Abs(overStretching) * 0.55f / viewSize + 1)) * viewSize * Mathf.Sign(overStretching);
+        }
+
+
+        private void Update()
+        {
+            if (m_isDragging)
+                return;
+
+            var deltaTime = Time.unscaledDeltaTime;
+            var offset = CalculateOffset(ScrollPosition);
+
+            if(offset == 0f && Mathf.Abs(m_velocity) <= 0.001f)
+                return;
+
+            if (m_movementType == MovementType.Elastic && !Mathf.Approximately(offset, 0f))
+            {
+                var newPosition = Mathf.SmoothDamp(ScrollPosition, ScrollPosition + offset, ref m_velocity,
+                    m_elasticity, Mathf.Infinity, deltaTime);
+                UpdatePosition(newPosition);
+            }
+            else if (m_inertia)
+            {
+                m_velocity *= Mathf.Pow(m_decelerationRate, deltaTime);
+                if (Mathf.Abs(m_velocity) < 0.001f)
+                    m_velocity = 0f;
+
+                var newPosition = ScrollPosition + m_velocity * deltaTime;
+
+                if (m_movementType == MovementType.Clamped)
+                {
+                    var newOffset = CalculateOffset(newPosition);
+                    newPosition += newOffset;
+                    if (!Mathf.Approximately(newOffset, 0f))
+                        m_velocity = 0f;
+                }
+
+                UpdatePosition(newPosition);
+            }
+            else
+            {
+                m_velocity = 0f;
+                if (!Mathf.Approximately(offset, 0f))
+                {
+                    UpdatePosition(ScrollPosition + offset);
+                }
+            }
+        }
+
+
+        private void UpdatePosition(float position)
+        {
+            ScrollPosition = position;
+
+            for (var i = 0; i < m_cells.Count; i++)
+                m_cells[i].RectTransform.anchoredPosition = new Vector3(0, m_cells[i].BottomPos + ScrollPosition, 0);
+
+            UpdateVisibility();
+        }
+
+        #endregion
+
+        #region Visibility
+
+        private void UpdateVisibility()
+        {
+            //TODO: for the time being only one cell is added/removed to spread the CPU load over more frames. Is this what we want.
+            TryRemoveBottomCells();
+            TryRemoveTopCells();
+
+            TryCreateBottomCells();
+            TryCreateTopCells();
+        }
+
+        private void TryRemoveBottomCells()
+        {
+            if (m_cells is null || m_cells.Count == 0)
+                return;
+
+            var cellData = m_cells[0];
+            if (cellData.BottomPos + cellData.Height + ScrollPosition >= RectTransform.localPosition.y)
+                return;
+
+
+            var spacingBelow = cellData.Index == 0 ? 0 : m_spacing;
+            m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingBelow;
+            ObjectPool.Return(cellData.Cell);
+            m_cells.RemoveAt(0);
+        }
+
+        private void TryRemoveTopCells()
+        {
+            if (m_cells is null || m_cells.Count == 0)
+                return;
+
+            var cellData = m_cells[^1];
+
+            if (cellData.BottomPos + ScrollPosition <= RectTransform.localPosition.y + RectTransform.rect.yMax)
+                return;
+
+            var spacingAbove = cellData.Index == m_data.Count - 1 ? 0 : m_spacing;
+            m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingAbove;
+            ObjectPool.Return(cellData.Cell);
+            m_cells.RemoveAt(m_cells.Count - 1);
+        }
+
+        private void TryCreateBottomCells()
+        {
+            if (m_cells is null || m_cells.Count == 0)
+                return;
+
+            var cellData = m_cells[0];
+            if (cellData.Index + 1 >= m_data.Count)
+                return;
+
+            if (cellData.BottomPos - m_spacing + ScrollPosition > RectTransform.localPosition.y)
+                CreateCell(cellData.Index + 1);
+        }
+
+        private void TryCreateTopCells()
+        {
+            var index = m_cells.Count - 1;
+            if (index < 0)
+                return;
+
+            var cellData = m_cells[index];
+
+            if (cellData.Index <= 0)
+                return;
+
+            var max = RectTransform.localPosition.y + RectTransform.rect.yMax;
+            if (cellData.BottomPos + cellData.Height + m_spacing + ScrollPosition < max)
+                CreateCell(cellData.Index - 1);
+        }
+
+        #endregion
+    }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "hagelslag.infinitedynamicscrollview",
+  "version": "1.0.0",
+  "displayName": "Infinite DynamicScroll View",
+  "description": "Provides a Unity ScrollRect and ScrollView supporting an infinite amount of entries of dynamic dimensions.",
+  "unity": "6000.3",
+  "unityRelease": "1f1",
+  "license": "MIT",
+  "keywords": [
+    "unity",
+    "tools",
+    "scrollview"
+  ],
+  "author": {
+    "name": "Hagelslag",
+    "url": "https://github.com/Hagelslag77"
+  },
+  "samples": [
+    {
+      "displayName": "Examples",
+      "description": "Demonstrates usage of Infinite DynamicScroll View.",
+      "path": "Samples~"
+    }
+  ],
+  "dependencies": {
+  }
+}
