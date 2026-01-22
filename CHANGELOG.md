@@ -5,6 +5,7 @@
 ### Added
 - New example using multiple prefabs and custom object pooling
 - ScrollPosition can be set from code
+- Support for height changes of the ScrollView
 
 ### Changed
 - Renamed example folders

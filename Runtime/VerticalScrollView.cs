@@ -68,6 +68,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
         private float m_startPosition;
         private Vector2 m_startPointerPosition;
 
+        private const float Epsilon = 0.001f;
+
         private RectTransform m_rectTransform;
         private RectTransform RectTransform
             => m_rectTransform ??= GetComponent<RectTransform>();
@@ -155,7 +157,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         protected override void OnDestroy()
         {
-            //TODO AK: not the best idea to dispose here if it's a custom pool
+            //TODO: maybe not the best idea to dispose here if it's a custom pool
             ObjectPool.Dispose();
 
             base.OnDestroy();
@@ -163,11 +165,22 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         protected override void OnRectTransformDimensionsChange()
         {
-            m_viewRect = RectTransform.rect;
+            var rect = RectTransform.rect;
+            var widthChanged = Math.Abs(rect.width - m_viewRect.width) > Epsilon;
+            var heightChanged = Math.Abs(rect.height - m_viewRect.height) > Epsilon;
+
+            m_viewRect = rect;
             m_contentWidth = m_viewRect.width - m_padding.Left - m_padding.Right;
 
-            Clear();
-            CreateCells();
+            if (widthChanged)
+            {
+                Clear();
+                CreateCells();
+                return;
+            }
+
+            if(heightChanged)
+                UpdatePosition();
         }
 
         private void CreateCells()
@@ -303,7 +316,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
             m_isDragging = false;
 
-            if (Mathf.Abs(eventData.delta.y) < .001f)
+            if (Mathf.Abs(eventData.delta.y) < Epsilon)
                 m_velocity = 0f;
         }
 
@@ -343,7 +356,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             var deltaTime = Time.unscaledDeltaTime;
             var offset = CalculateOffset(ScrollPosition);
 
-            if(offset == 0f && Mathf.Abs(m_velocity) <= 0.001f)
+            if(offset == 0f && Mathf.Abs(m_velocity) <= Epsilon)
                 return;
 
             if (m_movementType == MovementType.Elastic && !Mathf.Approximately(offset, 0f))
@@ -356,7 +369,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             else if (m_inertia)
             {
                 m_velocity *= Mathf.Pow(m_decelerationRate, deltaTime);
-                if (Mathf.Abs(m_velocity) < 0.001f)
+                if (Mathf.Abs(m_velocity) < Epsilon)
                     m_velocity = 0f;
 
                 var newPosition = ScrollPosition + m_velocity * deltaTime;
