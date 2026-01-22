@@ -82,7 +82,16 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         #region Public Interface
 
-        public float ScrollPosition { get; private set; }
+        private float m_scrollPosition;
+        public float ScrollPosition
+        {
+            get => m_scrollPosition;
+            set
+            {
+                m_scrollPosition = value;
+                UpdatePosition();
+            }
+        }
 
         public void Set(IList<TData> data)
         {
@@ -111,7 +120,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             }
 
             ScrollPosition -= cellHeight + m_spacing;
-            UpdatePosition(ScrollPosition);
+
         }
 
         public void Clear()
@@ -282,7 +291,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
             }
 
             m_lastDragPointerPosition = currentLocalPoint;
-            UpdatePosition(newPosition);
+            ScrollPosition = newPosition;
+            UpdatePosition();
         }
 
 
@@ -340,7 +350,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
             {
                 var newPosition = Mathf.SmoothDamp(ScrollPosition, ScrollPosition + offset, ref m_velocity,
                     m_elasticity, Mathf.Infinity, deltaTime);
-                UpdatePosition(newPosition);
+                ScrollPosition = newPosition;
+                UpdatePosition();
             }
             else if (m_inertia)
             {
@@ -358,23 +369,20 @@ namespace Hagelslag.InfiniteDynamicScrollView
                         m_velocity = 0f;
                 }
 
-                UpdatePosition(newPosition);
+                ScrollPosition = newPosition;
+                UpdatePosition();
             }
             else
             {
                 m_velocity = 0f;
                 if (!Mathf.Approximately(offset, 0f))
-                {
-                    UpdatePosition(ScrollPosition + offset);
-                }
+                    ScrollPosition += offset;
             }
         }
 
 
-        private void UpdatePosition(float position)
+        private void UpdatePosition()
         {
-            ScrollPosition = position;
-
             for (var i = 0; i < m_cells.Count; i++)
                 m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].BottomPos + ScrollPosition);
 
