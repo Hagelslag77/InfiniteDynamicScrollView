@@ -17,12 +17,12 @@
   },
   "samples": [
     {
-      "displayName": "Simple Scroll",
+      "displayName": "01 Simple Scroll",
       "description": "Demonstrates usage of Infinite DynamicScroll View.",
       "path": "Samples~/01_SimpleScroll"
     },
     {
-      "displayName": "Multiple Prefabs",
+      "displayName": "02 Multiple Prefabs",
       "description": "Demonstrates how to use multiple prefabs, selected by the data used for the prefab. Also shows the use of a custom Object Pool.",
       "path": "Samples~/02_MultiplePrefabs"
     }

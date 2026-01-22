@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Hagelslag.InfiniteDynamicScrollView.Examples.SimpleScroll
+namespace Hagelslag.Samples.InfiniteDynamicScrollView.SimpleScroll
 {
 
     public class MockDataProvider : MonoBehaviour
@@ -16,12 +16,6 @@ namespace Hagelslag.InfiniteDynamicScrollView.Examples.SimpleScroll
 
 
         private void OnEnable()
-        {
-            Recreate();
-        }
-
-        [ContextMenu( "Recreate")]
-        public void Recreate()
         {
             m_simpleScrollView.Clear();
             var messages = new List<string>(m_numMessages);

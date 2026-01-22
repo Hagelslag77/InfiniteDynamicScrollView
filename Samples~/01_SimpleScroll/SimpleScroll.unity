@@ -370,7 +370,7 @@ GameObject:
   - component: {fileID: 561812117}
   - component: {fileID: 561812120}
   m_Layer: 0
-  m_Name: FakeDataProvider
+  m_Name: MockDataProvider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

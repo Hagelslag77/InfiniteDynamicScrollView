@@ -1,4 +1,4 @@
-namespace Hagelslag.InfiniteDynamicScrollView.Examples.MultiplePrefabs
+namespace Hagelslag.Samples.InfiniteDynamicScrollView.MultiplePrefabs
 {
     public sealed class CellData
     {

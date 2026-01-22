@@ -1,8 +1,9 @@
 using System;
+using Hagelslag.InfiniteDynamicScrollView;
 using Hagelslag.InfiniteDynamicScrollView.Pool;
 using UnityEngine;
 
-namespace Hagelslag.InfiniteDynamicScrollView.Examples.MultiplePrefabs
+namespace Hagelslag.Samples.InfiniteDynamicScrollView.MultiplePrefabs
 {
     public sealed class MultiPrefabObjectPool : IObjectPool<CellData>
     {

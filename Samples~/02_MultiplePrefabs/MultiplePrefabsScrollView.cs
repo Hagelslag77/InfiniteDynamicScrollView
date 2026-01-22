@@ -1,7 +1,8 @@
+using Hagelslag.InfiniteDynamicScrollView;
 using Hagelslag.InfiniteDynamicScrollView.Pool;
 using UnityEngine;
 
-namespace Hagelslag.InfiniteDynamicScrollView.Examples.MultiplePrefabs
+namespace Hagelslag.Samples.InfiniteDynamicScrollView.MultiplePrefabs
 {
     public sealed class MultiplePrefabsScrollView : VerticalScrollView<CellData>
     {

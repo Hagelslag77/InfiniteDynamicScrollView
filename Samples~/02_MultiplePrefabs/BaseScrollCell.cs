@@ -1,7 +1,8 @@
+using Hagelslag.InfiniteDynamicScrollView;
 using TMPro;
 using UnityEngine;
 
-namespace Hagelslag.InfiniteDynamicScrollView.Examples.MultiplePrefabs
+namespace Hagelslag.Samples.InfiniteDynamicScrollView.MultiplePrefabs
 {
     public class BaseScrollCell : VerticalCell<CellData>
     {
