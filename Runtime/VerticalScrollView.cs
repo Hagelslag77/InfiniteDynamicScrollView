@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hagelslag.InfiniteDynamicScrollView.Pool;
+using Hagelslag.InfiniteDynamicScrollView.Shared;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -145,6 +146,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         protected override void OnDestroy()
         {
+            //TODO AK: not the best idea to dispose here if it's a custom pool
             ObjectPool.Dispose();
 
             base.OnDestroy();
@@ -164,7 +166,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (m_data == null)
                 return;
 
-            for (var i = m_data.Count - 1; i >= 0 & m_currentContentHeight <= m_viewRect.height - m_padding.Top; i--)
+            for (var i = m_data.Count - 1; i >= 0 && m_currentContentHeight <= m_viewRect.height - m_padding.Top; i--)
                 CreateCell(i);
         }
 
@@ -175,7 +177,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
             var rt = cell.GetComponent<RectTransform>();
             var cellHeight = cell.GetHeight(m_contentWidth);
-            var bottomPos = GetBottomPosForIndex(dataIndex, cellHeight);
+            var bottomPos = GetBottomPosForIndex(dataIndex, cellHeight, rt);
 
             var cellData = new CellData
             {
@@ -191,20 +193,27 @@ namespace Hagelslag.InfiniteDynamicScrollView
             else
                 m_cells.Add(cellData);
 
-            rt.sizeDelta = new Vector2(m_contentWidth, 0);
-            //TODO: this assumes the correct pivot, doesn't it?
-            rt.anchoredPosition = new Vector3(0, bottomPos + ScrollPosition, 0);
+            rt.sizeDelta = new Vector2(m_contentWidth, cellHeight);
+            rt.SetLocalPositionY(bottomPos + ScrollPosition);
 
             var spacing = dataIndex == 0 || dataIndex == m_data.Count - 1 ? 0 : m_spacing;
             m_currentContentHeight += cellHeight + spacing;
         }
 
-        private float GetBottomPosForIndex(int dataIndex, float newCellHeight)
+        private float GetBottomPosForIndex(int dataIndex, float newCellHeight, RectTransform child)
         {
             if (dataIndex == m_data.Count - 1)
             {
-                var min = RectTransform.localPosition.y;
-                return min + m_padding.Bottom;
+                var parentHeight = RectTransform.rect.height;
+                var childHeight = child.rect.height;
+                var parentPivotY = RectTransform.pivot.y;
+                var childPivotY = child.pivot.y;
+
+                return
+                    -parentHeight * parentPivotY
+                    + childHeight * childPivotY
+                    + m_padding.Bottom;
+
             }
 
             var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
@@ -305,15 +314,10 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (!isOldestMessageShown)
                 return 0f;
 
-            var max = RectTransform.localPosition.y + RectTransform.rect.yMax;
-
-            var cellData = m_cells[^1];
-            var topEdgeWithPadding = cellData.BottomPos + cellData.Height + m_padding.Top + position;
-            if (topEdgeWithPadding < max)
-                return max - topEdgeWithPadding;
-
-            return 0f;
+            var dist = m_cells[^1].RectTransform.DistanceFromTopToParentTop(RectTransform);
+            return dist > 0 ? dist : 0f;
         }
+
 
         private static float RubberDelta(float overStretching, float viewSize)
         {
@@ -372,7 +376,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             ScrollPosition = position;
 
             for (var i = 0; i < m_cells.Count; i++)
-                m_cells[i].RectTransform.anchoredPosition = new Vector3(0, m_cells[i].BottomPos + ScrollPosition, 0);
+                m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].BottomPos + ScrollPosition);
 
             UpdateVisibility();
         }
@@ -397,9 +401,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 return;
 
             var cellData = m_cells[0];
-            if (cellData.BottomPos + cellData.Height + ScrollPosition >= RectTransform.localPosition.y)
+            if (!cellData.RectTransform.IsFullyBelowParentsBottom(RectTransform))
                 return;
-
 
             var spacingBelow = cellData.Index == 0 ? 0 : m_spacing;
             m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingBelow;
@@ -414,7 +417,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
             var cellData = m_cells[^1];
 
-            if (cellData.BottomPos + ScrollPosition <= RectTransform.localPosition.y + RectTransform.rect.yMax)
+            if(!cellData.RectTransform.IsFullyAboveParentsTop(RectTransform))
                 return;
 
             var spacingAbove = cellData.Index == m_data.Count - 1 ? 0 : m_spacing;
@@ -432,7 +435,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (cellData.Index + 1 >= m_data.Count)
                 return;
 
-            if (cellData.BottomPos - m_spacing + ScrollPosition > RectTransform.localPosition.y)
+            if(cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform))
                 CreateCell(cellData.Index + 1);
         }
 
@@ -447,10 +450,11 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (cellData.Index <= 0)
                 return;
 
-            var max = RectTransform.localPosition.y + RectTransform.rect.yMax;
-            if (cellData.BottomPos + cellData.Height + m_spacing + ScrollPosition < max)
+            if(cellData.RectTransform.IsFullyBelowParentsTop(RectTransform))
                 CreateCell(cellData.Index - 1);
         }
+
+
 
         #endregion
     }
