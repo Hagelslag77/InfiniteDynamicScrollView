@@ -4,6 +4,7 @@ using System.Linq;
 using Hagelslag.InfiniteDynamicScrollView.Pool;
 using Hagelslag.InfiniteDynamicScrollView.Shared;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
@@ -33,6 +34,9 @@ namespace Hagelslag.InfiniteDynamicScrollView
             // ReSharper restore InconsistentNaming
         }
 
+        [Serializable]
+        public class ScrollRectEvent : UnityEvent<float> {}
+
         private enum MovementType
         {
             Unrestricted = ScrollRect.MovementType.Unrestricted,
@@ -53,6 +57,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         [SerializeField] private float m_scrollSensitivity = 1f;
 
         [SerializeField] private VerticalCell<TData> m_cellPrefab;
+        [SerializeField] private Scrollbar.ScrollEvent m_onValueChanged = new();
 
         private IList<TData> m_data;
         private readonly List<CellData> m_cells = new();
@@ -60,6 +65,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         private float m_currentContentHeight;
         private Rect m_viewRect;
         private float m_contentWidth;
+        private bool m_isVisibilityUpdateNeeded;
 
         private float m_velocity;
         private bool m_isDragging;
@@ -79,20 +85,41 @@ namespace Hagelslag.InfiniteDynamicScrollView
         protected virtual IObjectPool<TData> ObjectPool
             => m_objectPool ??= new ObjectPool<TData>(InstantiateCell, DestroyCell);
 
+        private float scrollPositionInternal;
+        private float ScrollPositionInternal
+        {
+            get => scrollPositionInternal;
+            set
+            {
+                var pref = scrollPositionInternal;
+                scrollPositionInternal = value;
+                UpdatePosition();
+                if(Math.Abs(pref - scrollPositionInternal) > Epsilon)
+                    m_onValueChanged.Invoke(scrollPositionInternal);
+            }
+        }
 
         #endregion
 
         #region Public Interface
 
-        private float m_scrollPosition;
         public float ScrollPosition
         {
-            get => m_scrollPosition;
+            get => ScrollPositionInternal;
             set
             {
-                m_scrollPosition = value;
-                UpdatePosition();
+                m_velocity = 0;
+                ScrollPositionInternal = value;
             }
+        }
+
+        public IEnumerable<VerticalCell<TData>> VisibleCells
+            => m_cells.Select(x => x.Cell).Reverse();
+
+        public Scrollbar.ScrollEvent OnValueChanged
+        {
+            get => m_onValueChanged;
+            set => m_onValueChanged = value;
         }
 
         public void Set(IList<TData> data)
@@ -121,8 +148,23 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 m_cells[i] = cell;
             }
 
-            ScrollPosition -= cellHeight + m_spacing;
+            ScrollPositionInternal -= cellHeight + m_spacing;
+        }
 
+        public void AddFront(TData data)
+        {
+            m_data ??= new List<TData>();
+            if (m_data.IsReadOnly)
+                m_data = new List<TData>(m_data);
+
+            m_data.Insert(0, data);
+
+            for (var i = 0; i < m_cells.Count; i++)
+            {
+                var cell = m_cells[i];
+                cell.Index += 1;
+                m_cells[i] = cell;
+            }
         }
 
         public void Clear()
@@ -133,12 +175,13 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_cells.Clear();
 
             m_currentContentHeight = 0f;
-            ScrollPosition = .0f;
+            ScrollPositionInternal = .0f;
             m_velocity = .0f;
             m_isDragging = false;
             m_lastDragPointerPosition = Vector2.zero;
             m_startPosition = .0f;
             m_startPointerPosition = Vector2.zero;
+            m_isVisibilityUpdateNeeded = false;
         }
 
         protected virtual VerticalCell<TData> InstantiateCell(TData data, Transform parent)
@@ -216,7 +259,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 m_cells.Add(cellData);
 
             rt.sizeDelta = new Vector2(m_contentWidth, cellHeight);
-            rt.SetLocalPositionY(bottomPos + ScrollPosition);
+            rt.SetLocalPositionY(bottomPos + ScrollPositionInternal);
 
             var spacing = dataIndex == 0 || dataIndex == m_data.Count - 1 ? 0 : m_spacing;
             m_currentContentHeight += cellHeight + spacing;
@@ -264,7 +307,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
             m_isDragging = true;
             m_velocity = 0f;
-            m_startPosition = ScrollPosition;
+            m_startPosition = ScrollPositionInternal;
             RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform) transform, eventData.position,
                 eventData.pressEventCamera, out m_startPointerPosition);
             m_lastDragPointerPosition = m_startPointerPosition;
@@ -304,8 +347,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             }
 
             m_lastDragPointerPosition = currentLocalPoint;
-            ScrollPosition = newPosition;
-            UpdatePosition();
+            ScrollPositionInternal = newPosition;
         }
 
 
@@ -326,7 +368,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         private float CalculateOffset(float position)
         {
-            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0)
+            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0 || m_cells.Count == 0)
                 return 0f;
 
             var isNewestMessageShown = m_cells[0].Index == m_data.Count - 1;
@@ -354,17 +396,16 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 return;
 
             var deltaTime = Time.unscaledDeltaTime;
-            var offset = CalculateOffset(ScrollPosition);
+            var offset = CalculateOffset(ScrollPositionInternal);
 
-            if(offset == 0f && Mathf.Abs(m_velocity) <= Epsilon)
+            if(Mathf.Abs(offset) <= Epsilon && Mathf.Abs(m_velocity) <= Epsilon)
                 return;
 
             if (m_movementType == MovementType.Elastic && !Mathf.Approximately(offset, 0f))
             {
-                var newPosition = Mathf.SmoothDamp(ScrollPosition, ScrollPosition + offset, ref m_velocity,
+                var newPosition = Mathf.SmoothDamp(ScrollPositionInternal, ScrollPositionInternal + offset, ref m_velocity,
                     m_elasticity, Mathf.Infinity, deltaTime);
-                ScrollPosition = newPosition;
-                UpdatePosition();
+                ScrollPositionInternal = newPosition;
             }
             else if (m_inertia)
             {
@@ -372,7 +413,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 if (Mathf.Abs(m_velocity) < Epsilon)
                     m_velocity = 0f;
 
-                var newPosition = ScrollPosition + m_velocity * deltaTime;
+                var newPosition = ScrollPositionInternal + m_velocity * deltaTime;
 
                 if (m_movementType == MovementType.Clamped)
                 {
@@ -382,97 +423,129 @@ namespace Hagelslag.InfiniteDynamicScrollView
                         m_velocity = 0f;
                 }
 
-                ScrollPosition = newPosition;
-                UpdatePosition();
+                ScrollPositionInternal = newPosition;
             }
             else
             {
                 m_velocity = 0f;
                 if (!Mathf.Approximately(offset, 0f))
-                    ScrollPosition += offset;
+                    ScrollPositionInternal += offset;
             }
         }
 
+        private void LateUpdate()
+        {
+            if(!m_isVisibilityUpdateNeeded)
+                return;
+
+            m_isVisibilityUpdateNeeded = UpdateVisibility();
+        }
 
         private void UpdatePosition()
         {
             for (var i = 0; i < m_cells.Count; i++)
-                m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].BottomPos + ScrollPosition);
+                m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].BottomPos + ScrollPositionInternal);
 
-            UpdateVisibility();
+            m_isVisibilityUpdateNeeded = true;
         }
 
         #endregion
 
         #region Visibility
 
-        private void UpdateVisibility()
+        private bool UpdateVisibility()
         {
             //TODO: for the time being only one cell is added/removed to spread the CPU load over more frames. Is this what we want.
-            TryRemoveBottomCells();
-            TryRemoveTopCells();
-
-            TryCreateBottomCells();
-            TryCreateTopCells();
+            return TryRemoveBottomCells()
+                || TryRemoveTopCells()
+                || TryCreateBottomCells()
+                || TryCreateTopCells();
         }
 
-        private void TryRemoveBottomCells()
+        private bool TryRemoveBottomCells()
         {
-            if (m_cells is null || m_cells.Count == 0)
-                return;
+            if (m_cells.Count == 0)
+                return false;
 
             var cellData = m_cells[0];
+
+            //don't remove the top cell if it goes below the view port
+            if (cellData.Index == 0)
+                return false;
+
             if (!cellData.RectTransform.IsFullyBelowParentsBottom(RectTransform))
-                return;
+                return false;
 
             var spacingBelow = cellData.Index == 0 ? 0 : m_spacing;
             m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingBelow;
             ObjectPool.Return(cellData.Cell);
             m_cells.RemoveAt(0);
+
+            return true;
         }
 
-        private void TryRemoveTopCells()
+        private bool TryRemoveTopCells()
         {
-            if (m_cells is null || m_cells.Count == 0)
-                return;
+            if (m_cells.Count == 0)
+                return false;
 
             var cellData = m_cells[^1];
 
+            //don't remove the bottom cell if it goes above the view port
+            if (cellData.Index == m_data.Count - 1)
+                return false;
+
             if(!cellData.RectTransform.IsFullyAboveParentsTop(RectTransform))
-                return;
+                return false;
 
             var spacingAbove = cellData.Index == m_data.Count - 1 ? 0 : m_spacing;
             m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingAbove;
             ObjectPool.Return(cellData.Cell);
             m_cells.RemoveAt(m_cells.Count - 1);
+
+            return true;
         }
 
-        private void TryCreateBottomCells()
+        private bool TryCreateBottomCells()
         {
             if (m_cells is null || m_cells.Count == 0)
-                return;
+            {
+                if(m_data is null || m_data.Count == 0)
+                    return false;
+                CreateCell(m_data.Count - 1);
+                return true;
+            }
 
             var cellData = m_cells[0];
             if (cellData.Index + 1 >= m_data.Count)
-                return;
+                return false;
 
-            if(cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform))
+            if (cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform))
+            {
                 CreateCell(cellData.Index + 1);
+                return true;
+            }
+
+            return false;
         }
 
-        private void TryCreateTopCells()
+        private bool TryCreateTopCells()
         {
             var index = m_cells.Count - 1;
             if (index < 0)
-                return;
+                return false;
 
             var cellData = m_cells[index];
 
             if (cellData.Index <= 0)
-                return;
+                return false;
 
-            if(cellData.RectTransform.IsFullyBelowParentsTop(RectTransform))
+            if (cellData.RectTransform.IsFullyBelowParentsTop(RectTransform))
+            {
                 CreateCell(cellData.Index - 1);
+                return true;
+            }
+            return false;
         }
 
 

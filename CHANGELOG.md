@@ -1,5 +1,19 @@
 # Infinite Dynamic Scroll View Unity changelog
 
+## [1.2.0] - 2026-01-26
+
+### Added
+- Option to get visible cells
+- OnValueChanged event, called when the scroll position changes
+- Feature to add items also to the top/front of the ScrollView
+
+### Changed
+- Imptroved performance by removing unnecessary update calls
+
+### Fixed
+- possible error "Trying to remove XXX from rebuild list while we are already inside a rebuild loop." on RectTransform changes
+- error is thrown when ScrollPosition is set to zero and no old cell is visible anymore
+
 ## [1.1.0] - 2026-01-22
 
 ### Added
@@ -18,4 +32,4 @@
 ## [1.0.0] - 2026-01-12
 
 ### Added
-- initial release
+- initial release~~~~
