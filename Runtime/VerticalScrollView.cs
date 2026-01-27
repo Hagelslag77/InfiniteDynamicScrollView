@@ -173,6 +173,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 ObjectPool.Return(cellData.Cell);
 
             m_cells.Clear();
+            m_data?.Clear();
 
             m_currentContentHeight = 0f;
             ScrollPositionInternal = .0f;

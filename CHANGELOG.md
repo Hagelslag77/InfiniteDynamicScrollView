@@ -1,5 +1,10 @@
 # Infinite Dynamic Scroll View Unity changelog
 
+## [1.2.1] - 2026-01-27
+
+### Fixed
+- calling ScrollView.Clear() might not work in every case.
+
 ## [1.2.0] - 2026-01-26
 
 ### Added
