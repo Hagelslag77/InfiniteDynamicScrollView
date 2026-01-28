@@ -4,6 +4,7 @@
 
 ### Added
  - ScrollTo(index) method to scroll to a specific cell
+ - Exposed stored Data as IReadOnlyList<TData>
 
 ### Changed
  - **BREAKING:** ScrollPosition cannot be set from code anymore (use ScrollTo instead).
