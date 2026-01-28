@@ -1,6 +1,12 @@
 # Infinite Dynamic Scroll View Unity changelog
 
-## [1.2.1] - 2026-01-27
+## [2.0.0] - 2026-01-28
+
+### Added
+ - ScrollTo(index) method to scroll to a specific cell
+
+### Changed
+ - **BREAKING:** ScrollPosition cannot be set from code anymore (use ScrollTo instead).
 
 ### Fixed
 - calling ScrollView.Clear() might not work in every case.
@@ -13,7 +19,7 @@
 - Feature to add items also to the top/front of the ScrollView
 
 ### Changed
-- Imptroved performance by removing unnecessary update calls
+- Improved performance by removing unnecessary update calls
 
 ### Fixed
 - possible error "Trying to remove XXX from rebuild list while we are already inside a rebuild loop." on RectTransform changes
