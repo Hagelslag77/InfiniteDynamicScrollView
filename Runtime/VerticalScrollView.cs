@@ -12,7 +12,9 @@ namespace Hagelslag.InfiniteDynamicScrollView
 {
     //TODO Feature: add support for top down
     //TODO Feature: allow other pivots
-    public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler
+    //TODO AK: bug: last cell flickers
+    public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler,
+        IPointerDownHandler
     {
         private struct CellData
         {
@@ -30,12 +32,15 @@ namespace Hagelslag.InfiniteDynamicScrollView
             public float Left;
             public float Right;
             public float Top;
+
             public float Bottom;
             // ReSharper restore InconsistentNaming
         }
 
         [Serializable]
-        public class ScrollRectEvent : UnityEvent<float> {}
+        public class ScrollRectEvent : UnityEvent<float>
+        {
+        }
 
         private enum MovementType
         {
@@ -77,15 +82,18 @@ namespace Hagelslag.InfiniteDynamicScrollView
         private const float Epsilon = 0.001f;
 
         private RectTransform m_rectTransform;
+
         private RectTransform RectTransform
             => m_rectTransform ??= GetComponent<RectTransform>();
 
 
         private IObjectPool<TData> m_objectPool;
+
         protected virtual IObjectPool<TData> ObjectPool
             => m_objectPool ??= new ObjectPool<TData>(InstantiateCell, DestroyCell);
 
         private float scrollPositionInternal;
+
         private float ScrollPositionInternal
         {
             get => scrollPositionInternal;
@@ -94,7 +102,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 var pref = scrollPositionInternal;
                 scrollPositionInternal = value;
                 UpdatePosition();
-                if(Math.Abs(pref - scrollPositionInternal) > Epsilon)
+                if (Math.Abs(pref - scrollPositionInternal) > Epsilon)
                     m_onValueChanged.Invoke(scrollPositionInternal);
             }
         }
@@ -185,6 +193,25 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_isVisibilityUpdateNeeded = false;
         }
 
+        public void ScrollToCell(int dataIndex)
+        {
+            if (m_data == null || dataIndex < 0 || dataIndex >= m_data.Count)
+                throw new IndexOutOfRangeException("Index out of range.");
+
+            m_velocity = 0f;
+            m_isDragging = false;
+
+            var first  = m_data.Take(dataIndex + 1).ToList();
+            var second = m_data.Skip(dataIndex + 1).ToList();
+
+            Clear();
+            Set(first);
+
+            foreach (var data in second)
+                Add(data);
+        }
+
+
         protected virtual VerticalCell<TData> InstantiateCell(TData data, Transform parent)
         {
             return Instantiate(m_cellPrefab, parent);
@@ -223,7 +250,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 return;
             }
 
-            if(heightChanged)
+            if (heightChanged)
                 UpdatePosition();
         }
 
@@ -279,7 +306,6 @@ namespace Hagelslag.InfiniteDynamicScrollView
                     -parentHeight * parentPivotY
                     + childHeight * childPivotY
                     + m_padding.Bottom;
-
             }
 
             var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
@@ -293,6 +319,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         #endregion
 
         #region DragHandler
+
         void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
         {
             if (eventData.button != PointerEventData.InputButton.Left)
@@ -369,7 +396,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         private float CalculateOffset(float position)
         {
-            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0 || m_cells.Count == 0)
+            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0 ||
+                m_cells.Count == 0)
                 return 0f;
 
             var isNewestMessageShown = m_cells[0].Index == m_data.Count - 1;
@@ -399,12 +427,13 @@ namespace Hagelslag.InfiniteDynamicScrollView
             var deltaTime = Time.unscaledDeltaTime;
             var offset = CalculateOffset(ScrollPositionInternal);
 
-            if(Mathf.Abs(offset) <= Epsilon && Mathf.Abs(m_velocity) <= Epsilon)
+            if (Mathf.Abs(offset) <= Epsilon && Mathf.Abs(m_velocity) <= Epsilon)
                 return;
 
             if (m_movementType == MovementType.Elastic && !Mathf.Approximately(offset, 0f))
             {
-                var newPosition = Mathf.SmoothDamp(ScrollPositionInternal, ScrollPositionInternal + offset, ref m_velocity,
+                var newPosition = Mathf.SmoothDamp(ScrollPositionInternal, ScrollPositionInternal + offset,
+                    ref m_velocity,
                     m_elasticity, Mathf.Infinity, deltaTime);
                 ScrollPositionInternal = newPosition;
             }
@@ -436,7 +465,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         private void LateUpdate()
         {
-            if(!m_isVisibilityUpdateNeeded)
+            if (!m_isVisibilityUpdateNeeded)
                 return;
 
             m_isVisibilityUpdateNeeded = UpdateVisibility();
@@ -458,9 +487,9 @@ namespace Hagelslag.InfiniteDynamicScrollView
         {
             //TODO: for the time being only one cell is added/removed to spread the CPU load over more frames. Is this what we want.
             return TryRemoveBottomCells()
-                || TryRemoveTopCells()
-                || TryCreateBottomCells()
-                || TryCreateTopCells();
+                   || TryRemoveTopCells()
+                   || TryCreateBottomCells()
+                   || TryCreateTopCells();
         }
 
         private bool TryRemoveBottomCells()
@@ -496,7 +525,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (cellData.Index == m_data.Count - 1)
                 return false;
 
-            if(!cellData.RectTransform.IsFullyAboveParentsTop(RectTransform))
+            if (!cellData.RectTransform.IsFullyAboveParentsTop(RectTransform))
                 return false;
 
             var spacingAbove = cellData.Index == m_data.Count - 1 ? 0 : m_spacing;
@@ -511,7 +540,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         {
             if (m_cells is null || m_cells.Count == 0)
             {
-                if(m_data is null || m_data.Count == 0)
+                if (m_data is null || m_data.Count == 0)
                     return false;
                 CreateCell(m_data.Count - 1);
                 return true;
@@ -546,10 +575,9 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 CreateCell(cellData.Index - 1);
                 return true;
             }
+
             return false;
         }
-
-
 
         #endregion
     }
