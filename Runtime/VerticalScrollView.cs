@@ -64,7 +64,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         [SerializeField] private VerticalCell<TData> m_cellPrefab;
         [SerializeField] private Scrollbar.ScrollEvent m_onValueChanged = new();
 
-        private IList<TData> m_data;
+        private List<TData> m_data;
         private readonly List<CellData> m_cells = new();
 
         private float m_currentContentHeight;
@@ -111,6 +111,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         #region Public Interface
 
+        public IReadOnlyList<TData> Data => m_data?.AsReadOnly();
+
         public IEnumerable<VerticalCell<TData>> VisibleCells
             => m_cells.Select(x => x.Cell).Reverse();
 
@@ -122,16 +124,13 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         public void Set(IList<TData> data)
         {
-            m_data = data;
+            m_data = data.ToList();
             CreateCells();
         }
 
         public void Add(TData data)
         {
             m_data ??= new List<TData>();
-            if (m_data.IsReadOnly)
-                m_data = new List<TData>(m_data);
-
             m_data.Add(data);
 
             var tmp = ObjectPool.Rent(data, transform);
@@ -152,9 +151,6 @@ namespace Hagelslag.InfiniteDynamicScrollView
         public void AddFront(TData data)
         {
             m_data ??= new List<TData>();
-            if (m_data.IsReadOnly)
-                m_data = new List<TData>(m_data);
-
             m_data.Insert(0, data);
 
             for (var i = 0; i < m_cells.Count; i++)
