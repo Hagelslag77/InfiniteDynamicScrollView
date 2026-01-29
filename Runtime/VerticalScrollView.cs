@@ -94,10 +94,10 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         private float scrollPosition;
 
-        private float ScrollPosition
+        public float ScrollPosition
         {
             get => scrollPosition;
-            set
+            private set
             {
                 var pref = scrollPosition;
                 scrollPosition = value;

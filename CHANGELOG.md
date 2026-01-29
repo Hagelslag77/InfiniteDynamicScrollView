@@ -1,6 +1,6 @@
 # Infinite Dynamic Scroll View Unity changelog
 
-## [2.0.0] - 2026-01-28
+## [2.0.0] - 2026-01-30
 
 ### Added
  - ScrollTo(index) method to scroll to a specific cell
