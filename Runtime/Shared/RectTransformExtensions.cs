@@ -88,7 +88,7 @@ namespace Hagelslag.InfiniteDynamicScrollView.Shared
             var childTopInParent =
                 parent.InverseTransformPoint(child.TransformPoint(new Vector3(0, childCenterY, 0)));
 
-            return parent.rect.height - childTopInParent.y;
+            return parent.rect.height * (1.0f - parent.pivot.y) - childTopInParent.y;
         }
     }
 }

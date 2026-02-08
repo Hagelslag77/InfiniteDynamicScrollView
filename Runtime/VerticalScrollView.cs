@@ -11,7 +11,6 @@ using UnityEngine.UI;
 namespace Hagelslag.InfiniteDynamicScrollView
 {
     //TODO Feature: add support for top down
-    //TODO Feature: allow other pivots
     public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler,
         IPointerDownHandler
     {

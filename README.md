@@ -105,7 +105,6 @@ public sealed class SimpleScrollView : VerticalScrollView<string>
 
 * Supports only vertical scrolling
 * Supports only bottom up (i.e. the last data item is always at the bottom and the bottom is shown first)
-* ScrollViews need to have their vertial pivot (y-component) set to 0 (bottom)
 
 ## License
 

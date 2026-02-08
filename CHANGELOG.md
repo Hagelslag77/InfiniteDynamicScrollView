@@ -4,6 +4,7 @@
 
 ### Changed
 - Removed pivot restriction for Cells.
+- Removed pivot restriction for ScrollView.
 
 ### Fixed
 - Cells at top/bottom might be created and destroyed again each frame.
