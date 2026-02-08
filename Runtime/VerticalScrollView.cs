@@ -186,7 +186,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_velocity = 0f;
             m_isDragging = false;
 
-            var first  = m_data.Take(dataIndex + 1).ToList();
+            var first = m_data.Take(dataIndex + 1).ToList();
             var second = m_data.Skip(dataIndex + 1).ToList();
 
             Clear();
@@ -278,27 +278,35 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_currentContentHeight += cellHeight + spacing;
         }
 
+
         private float GetBottomPosForIndex(int dataIndex, float newCellHeight, RectTransform child)
         {
+            var childPivotY = child.pivot.y;
+
             if (dataIndex == m_data.Count - 1)
             {
                 var parentHeight = RectTransform.rect.height;
-                var childHeight = child.rect.height;
                 var parentPivotY = RectTransform.pivot.y;
-                var childPivotY = child.pivot.y;
 
                 return
                     -parentHeight * parentPivotY
-                    + childHeight * childPivotY
+                    + newCellHeight * childPivotY
                     + m_padding.Bottom;
             }
 
             var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
             if (cellDataBelow.Cell is not null)
-                return cellDataBelow.BottomPos + cellDataBelow.Height + m_spacing;
+            {
+                return cellDataBelow.BottomPos
+                       + (1.0f - cellDataBelow.RectTransform.pivot.y) * cellDataBelow.Height
+                       + newCellHeight * childPivotY
+                       + m_spacing;
+            }
 
             var cellDataAbove = m_cells.First(x => x.Index == dataIndex - 1);
-            return cellDataAbove.BottomPos - m_spacing - newCellHeight;
+            return cellDataAbove.BottomPos - (cellDataAbove.RectTransform.pivot.y * cellDataAbove.Height)
+                                           - m_spacing
+                                           - newCellHeight * (1.0f - childPivotY);
         }
 
         #endregion

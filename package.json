@@ -1,6 +1,6 @@
 {
   "name": "hagelslag.infinitedynamicscrollview",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "displayName": "Infinite DynamicScroll View",
   "description": "Provides a Unity ScrollRect and ScrollView supporting an infinite amount of entries of dynamic dimensions.",
   "unity": "6000.3",

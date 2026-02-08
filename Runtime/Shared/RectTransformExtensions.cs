@@ -84,8 +84,9 @@ namespace Hagelslag.InfiniteDynamicScrollView.Shared
 
         internal static float DistanceFromTopToParentTop(this RectTransform child, RectTransform parent)
         {
+            var childCenterY = child.rect.height * (1.0f - child.pivot.y);
             var childTopInParent =
-                parent.InverseTransformPoint(child.TransformPoint(new Vector3(0, child.rect.height, 0)));
+                parent.InverseTransformPoint(child.TransformPoint(new Vector3(0, childCenterY, 0)));
 
             return parent.rect.height - childTopInParent.y;
         }

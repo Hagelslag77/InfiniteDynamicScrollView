@@ -1,6 +1,9 @@
 # Infinite Dynamic Scroll View Unity changelog
 
-## [2.0.1] - 2026-02-08
+## [2.1.0] - 2026-02-08
+
+### Changed
+- Removed pivot restriction for Cells.
 
 ### Fixed
 - Cells at top/bottom might be created and destroyed again each frame.
