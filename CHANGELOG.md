@@ -3,7 +3,8 @@
 ## [2.0.1] - 2026-02-08
 
 ### Fixed
-- Cells at top/bottom might be created and destroyed again each frame
+- Cells at top/bottom might be created and destroyed again each frame.
+- Top padding is ignored.
 
 ## [2.0.0] - 2026-01-30
 
@@ -15,7 +16,7 @@
  - **BREAKING:** ScrollPosition cannot be set from code anymore (use ScrollTo instead).
 
 ### Fixed
-- calling ScrollView.Clear() might not work in every case.
+- Calling ScrollView.Clear() might not work in every case.
 
 ## [1.2.0] - 2026-01-26
 

@@ -381,19 +381,22 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
         private float CalculateOffset(float position)
         {
-            if (m_movementType == MovementType.Unrestricted || m_data == null || m_data.Count == 0 ||
-                m_cells.Count == 0)
+            if (m_movementType == MovementType.Unrestricted
+                || m_data == null
+                || m_data.Count == 0
+                || m_cells.Count == 0)
                 return 0f;
 
-            var isNewestMessageShown = m_cells[0].Index == m_data.Count - 1;
-            if (isNewestMessageShown && position > 0)
+            var isLatestCellShown = m_cells[0].Index == m_data.Count - 1;
+            if (isLatestCellShown && position > 0)
                 return -position;
 
-            var isOldestMessageShown = m_cells[^1].Index == 0;
-            if (!isOldestMessageShown)
+            var isFirstCellShown = m_cells[^1].Index == 0;
+            if (!isFirstCellShown)
                 return 0f;
 
-            var dist = m_cells[^1].RectTransform.DistanceFromTopToParentTop(RectTransform);
+            var dist = m_cells[^1].RectTransform.DistanceFromTopToParentTop(RectTransform) - m_padding.Top;
+
             return dist > 0 ? dist : 0f;
         }
 
