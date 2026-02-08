@@ -19,7 +19,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             public VerticalCell<TData> Cell;
             public int Index;
             public float Height;
-            public float BottomPos;
+            public float ReferencePos;
             public RectTransform RectTransform;
         }
 
@@ -139,7 +139,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             for (var i = 0; i < m_cells.Count; i++)
             {
                 var cell = m_cells[i];
-                cell.BottomPos += cellHeight + m_spacing;
+                cell.ReferencePos += cellHeight + m_spacing;
                 m_cells[i] = cell;
             }
 
@@ -254,11 +254,11 @@ namespace Hagelslag.InfiniteDynamicScrollView
 
             var rt = cell.GetComponent<RectTransform>();
             var cellHeight = cell.GetHeight(m_contentWidth);
-            var bottomPos = GetBottomPosForIndex(dataIndex, cellHeight, rt);
+            var referencePos = GetReferencePosForIndex(dataIndex, cellHeight, rt);
 
             var cellData = new CellData
             {
-                BottomPos = bottomPos,
+                ReferencePos = referencePos,
                 Height = cellHeight,
                 Cell = cell,
                 Index = dataIndex,
@@ -271,14 +271,14 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 m_cells.Add(cellData);
 
             rt.sizeDelta = new Vector2(m_contentWidth, cellHeight);
-            rt.SetLocalPositionY(bottomPos + ScrollPosition);
+            rt.SetLocalPositionY(referencePos + ScrollPosition);
 
             var spacing = dataIndex == 0 || dataIndex == m_data.Count - 1 ? 0 : m_spacing;
             m_currentContentHeight += cellHeight + spacing;
         }
 
 
-        private float GetBottomPosForIndex(int dataIndex, float newCellHeight, RectTransform child)
+        private float GetReferencePosForIndex(int dataIndex, float newCellHeight, RectTransform child)
         {
             var childPivotY = child.pivot.y;
 
@@ -296,14 +296,14 @@ namespace Hagelslag.InfiniteDynamicScrollView
             var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
             if (cellDataBelow.Cell is not null)
             {
-                return cellDataBelow.BottomPos
+                return cellDataBelow.ReferencePos
                        + (1.0f - cellDataBelow.RectTransform.pivot.y) * cellDataBelow.Height
                        + newCellHeight * childPivotY
                        + m_spacing;
             }
 
             var cellDataAbove = m_cells.First(x => x.Index == dataIndex - 1);
-            return cellDataAbove.BottomPos - (cellDataAbove.RectTransform.pivot.y * cellDataAbove.Height)
+            return cellDataAbove.ReferencePos - (cellDataAbove.RectTransform.pivot.y * cellDataAbove.Height)
                                            - m_spacing
                                            - newCellHeight * (1.0f - childPivotY);
         }
@@ -469,7 +469,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
         private void UpdatePosition()
         {
             for (var i = 0; i < m_cells.Count; i++)
-                m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].BottomPos + ScrollPosition);
+                m_cells[i].RectTransform.SetLocalPositionY(m_cells[i].ReferencePos + ScrollPosition);
 
             m_isVisibilityUpdateNeeded = true;
         }
