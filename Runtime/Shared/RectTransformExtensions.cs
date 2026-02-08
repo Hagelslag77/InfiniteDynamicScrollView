@@ -7,62 +7,62 @@ namespace Hagelslag.InfiniteDynamicScrollView.Shared
         /// <summary>
         /// Child is fully above the parent's bottom edge.
         /// </summary>
-        internal static bool IsFullyAboveParentsBottom(this RectTransform child, RectTransform parent)
+        internal static bool IsFullyAboveParentsBottom(this RectTransform child, RectTransform parent, float offset = 0f)
         {
             var (childBottom, _) = GetVerticalEdgesInParentSpace(child, parent);
-            return parent.IsFullyAboveParentsBottom(childBottom);
+            return parent.IsFullyAboveParentsBottom(childBottom, offset);
         }
 
         /// <summary>
         /// Child is fully below the parent's top edge.
         /// </summary>
-        internal static bool IsFullyBelowParentsTop(this RectTransform child, RectTransform parent)
+        internal static bool IsFullyBelowParentsTop(this RectTransform child, RectTransform parent, float offset = 0f)
         {
             var (_, childTop) = GetVerticalEdgesInParentSpace(child, parent);
-            return parent.IsFullyBelowParentsTop(childTop);
+            return parent.IsFullyBelowParentsTop(childTop, offset);
         }
 
         /// <summary>
         /// Child is fully below the parent's bottom edge.
         /// </summary>
-        internal static bool IsFullyBelowParentsBottom(this RectTransform child, RectTransform parent)
+        internal static bool IsFullyBelowParentsBottom(this RectTransform child, RectTransform parent, float offset = 0f)
         {
             var (_, childTop) = GetVerticalEdgesInParentSpace(child, parent);
-            return parent.IsFullyBelowParentsBottom(childTop);
+            return parent.IsFullyBelowParentsBottom(childTop, offset);
         }
 
         /// <summary>
         /// Child is fully above the parent's top edge.
         /// </summary>
-        internal static bool IsFullyAboveParentsTop(this RectTransform child, RectTransform parent)
+        internal static bool IsFullyAboveParentsTop(this RectTransform child, RectTransform parent, float offset = 0f)
         {
             var (childBottom, _) = GetVerticalEdgesInParentSpace(child, parent);
-            return parent.IsFullyAboveParentsTop(childBottom);
+            return parent.IsFullyAboveParentsTop(childBottom, offset);
         }
 
         /// <summary>
         /// Child is fully below the parent's top edge.
         /// </summary>
-        internal static bool IsFullyBelowParentsTop(this RectTransform parent, float childTop)
-            => childTop < parent.rect.yMax;
+        internal static bool IsFullyBelowParentsTop(this RectTransform parent, float childTop, float offset = 0f)
+            => childTop + offset < parent.rect.yMax;
 
         /// <summary>
         /// Child is fully above the parent's bottom edge.
         /// </summary>
-        internal static bool IsFullyAboveParentsBottom(this RectTransform parent, float childBottom)
-            => childBottom > parent.rect.yMin;
+        internal static bool IsFullyAboveParentsBottom(this RectTransform parent, float childBottom, float offset = 0f)
+            => childBottom + offset > parent.rect.yMin;
 
         /// <summary>
         /// Child is fully below the parent's bottom edge.
         /// </summary>
-        internal static bool IsFullyBelowParentsBottom(this RectTransform parent, float childTop)
-            => childTop < parent.rect.yMin;
+        internal static bool IsFullyBelowParentsBottom(this RectTransform parent, float childTop, float offset = 0f)
+            => childTop + offset < parent.rect.yMin;
 
         /// <summary>
         /// Child is fully above the parent's top edge.
         /// </summary>
-        internal static bool IsFullyAboveParentsTop(this RectTransform parent, float childBottom)
-            => childBottom > parent.rect.yMax;
+        internal static bool IsFullyAboveParentsTop(this RectTransform parent, float childBottom, float offset = 0f)
+            => childBottom + offset > parent.rect.yMax;
 
         internal static (float bottom, float top) GetVerticalEdgesInParentSpace(RectTransform child, RectTransform parent)
         {

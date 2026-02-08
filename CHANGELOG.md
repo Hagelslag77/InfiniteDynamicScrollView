@@ -1,5 +1,10 @@
 # Infinite Dynamic Scroll View Unity changelog
 
+## [2.0.1] - 2026-02-08
+
+### Fixed
+- Cells at top/bottom might be created and destroyed again each frame
+
 ## [2.0.0] - 2026-01-30
 
 ### Added

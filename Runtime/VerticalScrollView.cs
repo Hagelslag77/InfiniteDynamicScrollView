@@ -12,7 +12,6 @@ namespace Hagelslag.InfiniteDynamicScrollView
 {
     //TODO Feature: add support for top down
     //TODO Feature: allow other pivots
-    //TODO AK: bug: last cell flickers
     public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler,
         IPointerDownHandler
     {
@@ -536,7 +535,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (cellData.Index + 1 >= m_data.Count)
                 return false;
 
-            if (cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform))
+            if (cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform, -m_padding.Bottom))
             {
                 CreateCell(cellData.Index + 1);
                 return true;
@@ -556,7 +555,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (cellData.Index <= 0)
                 return false;
 
-            if (cellData.RectTransform.IsFullyBelowParentsTop(RectTransform))
+            if (cellData.RectTransform.IsFullyBelowParentsTop(RectTransform, m_padding.Top))
             {
                 CreateCell(cellData.Index - 1);
                 return true;
