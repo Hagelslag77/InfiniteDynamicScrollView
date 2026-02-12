@@ -1,6 +1,9 @@
 # Infinite Dynamic Scroll View Unity changelog
 
-## [2.1.0] - 2026-02-08
+## [2.1.0] - 2026-02-12
+
+### Added
+- Support for top to down placement (i.e. the last data item is always at the bottom and the top is shown first)
 
 ### Changed
 - Removed pivot restriction for Cells.

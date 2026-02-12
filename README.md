@@ -104,7 +104,6 @@ public sealed class SimpleScrollView : VerticalScrollView<string>
 ## Limitations
 
 * Supports only vertical scrolling
-* Supports only bottom up (i.e. the last data item is always at the bottom and the bottom is shown first)
 
 ## License
 

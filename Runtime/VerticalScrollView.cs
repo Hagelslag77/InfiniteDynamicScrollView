@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Hagelslag.InfiniteDynamicScrollView.Internal;
 using Hagelslag.InfiniteDynamicScrollView.Pool;
 using Hagelslag.InfiniteDynamicScrollView.Shared;
 using UnityEngine;
@@ -11,20 +12,13 @@ using UnityEngine.UI;
 namespace Hagelslag.InfiniteDynamicScrollView
 {
     //TODO Feature: add support for top down
-    public class VerticalScrollView<TData> : UIBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler,
-        IPointerDownHandler
+    public class VerticalScrollView<TData> : UIBehaviour,
+        IBeginDragHandler,
+        IDragHandler,
+        IEndDragHandler,
+        IPointerDownHandler,
+        IPlacementContext<TData>
     {
-        private struct CellData
-        {
-            // ReSharper disable InconsistentNaming
-            public VerticalCell<TData> Cell;
-            public int Index;
-            public float Height;
-            public float ReferencePos;
-            public RectTransform RectTransform;
-            // ReSharper restore InconsistentNaming
-        }
-
         [Serializable]
         private class Padding
         {
@@ -49,11 +43,18 @@ namespace Hagelslag.InfiniteDynamicScrollView
             Clamped = ScrollRect.MovementType.Clamped
         }
 
+        private enum PlacementType
+        {
+            BottomToTop,
+            TopToBottom
+        }
+
         #region Variables
 
         [SerializeField] private Padding m_padding;
         [SerializeField] private float m_spacing;
 
+        [SerializeField] private PlacementType m_placement = PlacementType.BottomToTop;
         [SerializeField] private MovementType m_movementType = MovementType.Elastic;
         [SerializeField] private float m_elasticity = 0.1f;
         [SerializeField] private bool m_inertia = true;
@@ -65,9 +66,8 @@ namespace Hagelslag.InfiniteDynamicScrollView
         [SerializeField] private Scrollbar.ScrollEvent m_onValueChanged = new();
 
         private List<TData> m_data;
-        private readonly List<CellData> m_cells = new();
+        private readonly List<CellData<TData>> m_cells = new();
 
-        private float m_currentContentHeight;
         private Rect m_viewRect;
         private float m_contentWidth;
         private bool m_isVisibilityUpdateNeeded;
@@ -92,6 +92,14 @@ namespace Hagelslag.InfiniteDynamicScrollView
         protected virtual IObjectPool<TData> ObjectPool
             => m_objectPool ??= new ObjectPool<TData>(InstantiateCell, DestroyCell);
 
+        private IPlacementStrategy<TData> m_placementStrategy;
+
+        private IPlacementStrategy<TData> PlacementStrategy
+            => m_placementStrategy
+                ??= m_placement == PlacementType.BottomToTop
+                    ? new BottomToTopStrategy<TData>(this)
+                    : new TopToBottomStrategy<TData>(this);
+
         private float scrollPosition;
 
         public float ScrollPosition
@@ -114,7 +122,9 @@ namespace Hagelslag.InfiniteDynamicScrollView
         public IReadOnlyList<TData> Data => m_data?.AsReadOnly();
 
         public IEnumerable<VerticalCell<TData>> VisibleCells
-            => m_cells.Select(x => x.Cell).Reverse();
+            => m_placement == PlacementType.TopToBottom
+                ? m_cells.Select(x => x.Cell)
+                : m_cells.Select(x => x.Cell).Reverse();
 
         public Scrollbar.ScrollEvent OnValueChanged
         {
@@ -133,19 +143,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_data ??= new List<TData>();
             m_data.Add(data);
 
-            var tmp = ObjectPool.Rent(data, transform);
-            tmp.SetData(data);
-            var cellHeight = tmp.GetHeight(m_contentWidth);
-            ObjectPool.Return(tmp);
-
-            for (var i = 0; i < m_cells.Count; i++)
-            {
-                var cell = m_cells[i];
-                cell.ReferencePos += cellHeight + m_spacing;
-                m_cells[i] = cell;
-            }
-
-            ScrollPosition -= cellHeight + m_spacing;
+            ScrollPosition += PlacementStrategy.Add(data, m_contentWidth);
         }
 
         public void AddFront(TData data)
@@ -153,12 +151,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             m_data ??= new List<TData>();
             m_data.Insert(0, data);
 
-            for (var i = 0; i < m_cells.Count; i++)
-            {
-                var cell = m_cells[i];
-                cell.Index += 1;
-                m_cells[i] = cell;
-            }
+            ScrollPosition += PlacementStrategy.AddFront(data,m_contentWidth);
         }
 
         public void Clear()
@@ -166,10 +159,11 @@ namespace Hagelslag.InfiniteDynamicScrollView
             foreach (var cellData in m_cells)
                 ObjectPool.Return(cellData.Cell);
 
+            PlacementStrategy?.Clear();
+
             m_cells.Clear();
             m_data?.Clear();
 
-            m_currentContentHeight = 0f;
             ScrollPosition = .0f;
             m_velocity = .0f;
             m_isDragging = false;
@@ -245,69 +239,7 @@ namespace Hagelslag.InfiniteDynamicScrollView
             if (m_data == null)
                 return;
 
-            for (var i = m_data.Count - 1; i >= 0 && m_currentContentHeight <= m_viewRect.height - m_padding.Top; i--)
-                CreateCell(i);
-        }
-
-        private void CreateCell(int dataIndex)
-        {
-            var cell = ObjectPool.Rent(m_data[dataIndex], this.transform);
-            cell.SetData(m_data[dataIndex]);
-
-            var rt = cell.GetComponent<RectTransform>();
-            var cellHeight = cell.GetHeight(m_contentWidth);
-            var referencePos = GetReferencePosForIndex(dataIndex, cellHeight, rt);
-
-            var cellData = new CellData
-            {
-                ReferencePos = referencePos,
-                Height = cellHeight,
-                Cell = cell,
-                Index = dataIndex,
-                RectTransform = rt,
-            };
-
-            if (m_cells.Count == 0 || dataIndex > m_cells[0].Index)
-                m_cells.Insert(0, cellData);
-            else
-                m_cells.Add(cellData);
-
-            rt.sizeDelta = new Vector2(m_contentWidth, cellHeight);
-            rt.SetLocalPositionY(referencePos + ScrollPosition);
-
-            var spacing = dataIndex == 0 || dataIndex == m_data.Count - 1 ? 0 : m_spacing;
-            m_currentContentHeight += cellHeight + spacing;
-        }
-
-
-        private float GetReferencePosForIndex(int dataIndex, float newCellHeight, RectTransform child)
-        {
-            var childPivotY = child.pivot.y;
-
-            if (dataIndex == m_data.Count - 1)
-            {
-                var parentHeight = RectTransform.rect.height;
-                var parentPivotY = RectTransform.pivot.y;
-
-                return
-                    -parentHeight * parentPivotY
-                    + newCellHeight * childPivotY
-                    + m_padding.Bottom;
-            }
-
-            var cellDataBelow = m_cells.FirstOrDefault(x => x.Index == dataIndex + 1);
-            if (cellDataBelow.Cell is not null)
-            {
-                return cellDataBelow.ReferencePos
-                       + (1.0f - cellDataBelow.RectTransform.pivot.y) * cellDataBelow.Height
-                       + newCellHeight * childPivotY
-                       + m_spacing;
-            }
-
-            var cellDataAbove = m_cells.First(x => x.Index == dataIndex - 1);
-            return cellDataAbove.ReferencePos - (cellDataAbove.RectTransform.pivot.y * cellDataAbove.Height)
-                                           - m_spacing
-                                           - newCellHeight * (1.0f - childPivotY);
+            PlacementStrategy.CreateCells(m_viewRect.height, m_contentWidth, ScrollPosition);
         }
 
         #endregion
@@ -396,26 +328,14 @@ namespace Hagelslag.InfiniteDynamicScrollView
                 || m_cells.Count == 0)
                 return 0f;
 
-            var isLatestCellShown = m_cells[0].Index == m_data.Count - 1;
-            if (isLatestCellShown && position > 0)
-                return -position;
-
-            var isFirstCellShown = m_cells[^1].Index == 0;
-            if (!isFirstCellShown)
-                return 0f;
-
-            var dist = m_cells[^1].RectTransform.DistanceFromTopToParentTop(RectTransform) - m_padding.Top;
-
-            return dist > 0 ? dist : 0f;
+            return PlacementStrategy.CalculateOffset(position);
         }
-
 
         private static float RubberDelta(float overStretching, float viewSize)
         {
             return (1 - 1 / (Mathf.Abs(overStretching) * 0.55f / viewSize + 1)) * viewSize * Mathf.Sign(overStretching);
         }
-
-
+        
         private void Update()
         {
             if (m_isDragging)
@@ -483,98 +403,26 @@ namespace Hagelslag.InfiniteDynamicScrollView
         private bool UpdateVisibility()
         {
             //TODO: for the time being only one cell is added/removed to spread the CPU load over more frames. Is this what we want.
-            return TryRemoveBottomCells()
-                   || TryRemoveTopCells()
-                   || TryCreateBottomCells()
-                   || TryCreateTopCells();
+            return PlacementStrategy.TryRemoveBottomCells()
+                   || PlacementStrategy.TryRemoveTopCells()
+                   || PlacementStrategy.TryCreateBottomCells(m_contentWidth, ScrollPosition)
+                   || PlacementStrategy.TryCreateTopCells(m_contentWidth, ScrollPosition);
         }
 
-        private bool TryRemoveBottomCells()
-        {
-            if (m_cells.Count == 0)
-                return false;
+        #endregion
 
-            var cellData = m_cells[0];
+        #region IPlacementContext Implementation
 
-            //don't remove the top cell if it goes below the view port
-            if (cellData.Index == 0)
-                return false;
+        RectTransform IPlacementContext<TData>.RectTransform => RectTransform;
 
-            if (!cellData.RectTransform.IsFullyBelowParentsBottom(RectTransform))
-                return false;
+        float IPlacementContext<TData>.TopPadding => m_padding.Top;
 
-            var spacingBelow = cellData.Index == 0 ? 0 : m_spacing;
-            m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingBelow;
-            ObjectPool.Return(cellData.Cell);
-            m_cells.RemoveAt(0);
+        float IPlacementContext<TData>.BottomPadding => m_padding.Bottom;
 
-            return true;
-        }
+        float IPlacementContext<TData>.Spacing => m_spacing;
 
-        private bool TryRemoveTopCells()
-        {
-            if (m_cells.Count == 0)
-                return false;
-
-            var cellData = m_cells[^1];
-
-            //don't remove the bottom cell if it goes above the view port
-            if (cellData.Index == m_data.Count - 1)
-                return false;
-
-            if (!cellData.RectTransform.IsFullyAboveParentsTop(RectTransform))
-                return false;
-
-            var spacingAbove = cellData.Index == m_data.Count - 1 ? 0 : m_spacing;
-            m_currentContentHeight -= cellData.RectTransform.rect.yMax + spacingAbove;
-            ObjectPool.Return(cellData.Cell);
-            m_cells.RemoveAt(m_cells.Count - 1);
-
-            return true;
-        }
-
-        private bool TryCreateBottomCells()
-        {
-            if (m_cells is null || m_cells.Count == 0)
-            {
-                if (m_data is null || m_data.Count == 0)
-                    return false;
-                CreateCell(m_data.Count - 1);
-                return true;
-            }
-
-            var cellData = m_cells[0];
-            if (cellData.Index + 1 >= m_data.Count)
-                return false;
-
-            if (cellData.RectTransform.IsFullyAboveParentsBottom(RectTransform, -m_padding.Bottom))
-            {
-                CreateCell(cellData.Index + 1);
-                return true;
-            }
-
-            return false;
-        }
-
-        private bool TryCreateTopCells()
-        {
-            var index = m_cells.Count - 1;
-            if (index < 0)
-                return false;
-
-            var cellData = m_cells[index];
-
-            if (cellData.Index <= 0)
-                return false;
-
-            if (cellData.RectTransform.IsFullyBelowParentsTop(RectTransform, m_padding.Top))
-            {
-                CreateCell(cellData.Index - 1);
-                return true;
-            }
-
-            return false;
-        }
+        IObjectPool<TData> IPlacementContext<TData>.ObjectPool => ObjectPool;
+        List<CellData<TData>> IPlacementContext<TData>.Cells => m_cells;
 
         #endregion
     }
