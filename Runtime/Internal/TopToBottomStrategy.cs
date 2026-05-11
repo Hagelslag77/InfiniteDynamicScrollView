@@ -17,7 +17,7 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
         public void CreateCells(float viewRectHeight, float contentWidth, float scrollPosition)
         {
             for (var i = 0;
-                 i < m_context.Data.Count - 1 && m_currentContentHeight <= viewRectHeight - m_context.BottomPadding;
+                 i < m_context.Data.Count && m_currentContentHeight <= viewRectHeight - m_context.BottomPadding;
                  i++)
                 CreateCell(i, contentWidth, scrollPosition);
         }
@@ -59,6 +59,10 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
 
             var cellData = m_context.Cells[^1];
 
+            //don't remove any cell when all content fits in the viewport (no scrolling possible)
+            if (m_context.Cells.Count == m_context.Data.Count)
+                return false;
+
             //don't remove the top cell if it goes below the view port
             if (cellData.Index == 0)
                 return false;
@@ -80,6 +84,10 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
                 return false;
 
             var cellData = m_context.Cells[0];
+
+            //don't remove any cell when all content fits in the viewport (no scrolling possible)
+            if (m_context.Cells.Count == m_context.Data.Count)
+                return false;
 
             //don't remove the bottom cell if it goes above the view port
             if (cellData.Index == m_context.Data.Count - 1)
@@ -137,10 +145,17 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
         public float CalculateOffset(float position)
         {
             var isFirstCellShown = m_context.Cells[0].Index == 0;
+            var isLatestCellShown = m_context.Cells[^1].Index == m_context.Data.Count - 1;
+
+            // all cells fit in the viewport: spring back to 0
+            if (isFirstCellShown && isLatestCellShown)
+                return -position;
+
+            // top
             if (isFirstCellShown && position < 0)
                 return -position;
 
-            var isLatestCellShown = m_context.Cells[^1].Index == m_context.Data.Count - 1;
+            // middle
             if (!isLatestCellShown)
                 return 0f;
 
