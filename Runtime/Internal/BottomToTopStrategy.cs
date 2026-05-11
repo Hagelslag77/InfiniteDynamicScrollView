@@ -63,6 +63,10 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
 
             var cellData = m_context.Cells[0];
 
+            //don't remove any cell when all content fits in the viewport (no scrolling possible)
+            if (m_context.Cells.Count == m_context.Data.Count)
+                return false;
+
             //don't remove the top cell if it goes below the view port
             if (cellData.Index == 0)
                 return false;
@@ -84,6 +88,10 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
                 return false;
 
             var cellData = m_context.Cells[^1];
+
+            //don't remove any cell when all content fits in the viewport (no scrolling possible)
+            if (m_context.Cells.Count == m_context.Data.Count)
+                return false;
 
             //don't remove the bottom cell if it goes above the view port
             if (cellData.Index == m_context.Data.Count - 1)
@@ -147,13 +155,21 @@ namespace Hagelslag.InfiniteDynamicScrollView.Internal
         public float CalculateOffset(float position)
         {
             var isLatestCellShown = m_context.Cells[0].Index == m_context.Data.Count - 1;
+            var isFirstCellShown = m_context.Cells[^1].Index == 0;
+
+            // all cells fit in the viewport: spring back to 0
+            if (isLatestCellShown && isFirstCellShown)
+                return -position;
+
+            // bottom
             if (isLatestCellShown && position > 0)
                 return -position;
 
-            var isFirstCellShown = m_context.Cells[^1].Index == 0;
+            // middle
             if (!isFirstCellShown)
                 return 0f;
 
+            // top cell
             var dist = m_context.Cells[^1].RectTransform.DistanceFromTopToParentTop(m_context.RectTransform)
                        - m_context.TopPadding;
 
